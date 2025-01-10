@@ -50,9 +50,6 @@ if uploaded_file:
         df_fc['ESTIMASI BIAYA'] = df_fc['TOTAL LEMBAR'] * harga_per_lembar
         df_fc['SELISIH'] = df_fc['NOMINAL'] - df_fc['ESTIMASI BIAYA']
         
-        # Reset index untuk menampilkan nomor urut
-        df_fc = df_fc.reset_index()
-        
         # Tampilkan DataFrame dengan kolom yang diinginkan
         kolom_tampil = ['NO.', 'VOUCHER NO.', 'TRANS. DATE', 'DESCRIPTION', 'TOTAL LEMBAR', 
                        'NOMINAL', 'ESTIMASI BIAYA', 'SELISIH']
