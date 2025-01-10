@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-st.title("Analisa Pembayaran Fotocopu")
+st.title("Analisa Pembayaran Fotocopy")
 st.write("""File yang dibutuhkan ATK.xlsx""")
 st.write("""Buat Kolom |No.|VOUCHER NO.|TRANS. DATE|DESCRIPTION|Nominal|Invoice, Kuitansi, Nota|Voucher|KETERANGAN (Kelemahan)|""")
 st.write("""Penamaan kolom harus sama persis seperti di atas""")
@@ -17,7 +17,7 @@ if uploaded_file:
     df = pd.read_excel(uploaded_file)
 
     # Daftar kata kunci untuk mendeteksi transaksi fotokopi
-    kata_kunci_fc = ["FC", "fc", "Fotocopy", "fotocopy", "Foto copy", "foto copy"]
+    kata_kunci_fc = ["FC", "fc", "Fotocopy", "fotocopy", "Foto copy", "foto copy", "foto kopi", "fotokopi"]
 
     # Filter transaksi yang berkaitan dengan fotokopi
     df_fc = df[df['DESCRIPTION'].str.contains('|'.join(kata_kunci_fc), case=False, na=False)]
