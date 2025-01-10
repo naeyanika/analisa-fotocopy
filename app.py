@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import re
+from io import BytesIO
 
 st.title("Analisa Pembayaran Fotocopy")
 st.write("""File yang dibutuhkan ATK.xlsx""")
@@ -31,39 +32,69 @@ if uploaded_file:
     if 'DESCRIPTION' in df.columns and 'NOMINAL' in df.columns:
         df_fc = df[df['DESCRIPTION'].str.contains('|'.join(kata_kunci_fc), case=False, na=False)]
         
+        # Tambah nomor urut
+        df_fc = df_fc.reset_index(drop=True)
+        df_fc.index = df_fc.index + 1
+        df_fc.index.name = 'NO.'
+        
         # Fungsi untuk menghitung jumlah lembar
         def hitung_lembar(deskripsi):
             angka = re.findall(r'\d+', deskripsi)
             return sum(map(int, angka)) if angka else 0
         
+        # Format tanggal
+        df_fc['TRANS. DATE'] = pd.to_datetime(df_fc['TRANS. DATE']).dt.strftime('%d/%m/%Y')
+        
+        # Hitung total lembar dan estimasi biaya
         df_fc['TOTAL LEMBAR'] = df_fc['DESCRIPTION'].apply(hitung_lembar)
         df_fc['ESTIMASI BIAYA'] = df_fc['TOTAL LEMBAR'] * harga_per_lembar
+        df_fc['SELISIH'] = df_fc['NOMINAL'] - df_fc['ESTIMASI BIAYA']
+        
+        # Reset index untuk menampilkan nomor urut
+        df_fc = df_fc.reset_index()
+        
+        # Tampilkan DataFrame dengan kolom yang diinginkan
+        kolom_tampil = ['NO.', 'VOUCHER NO.', 'TRANS. DATE', 'DESCRIPTION', 'TOTAL LEMBAR', 
+                       'NOMINAL', 'ESTIMASI BIAYA', 'SELISIH']
         
         st.subheader("Rincian Transaksi Fotocopy")
+        st.dataframe(df_fc[kolom_tampil])
         
-        # Tampilkan DataFrame dengan kolom yang sesuai
-        kolom_tampil = ['VOUCHER NO.', 'TRANS. DATE', 'DESCRIPTION', 'NOMINAL', 'TOTAL LEMBAR', 'ESTIMASI BIAYA']
-        kolom_tersedia = [kolom for kolom in kolom_tampil if kolom in df_fc.columns]
-        st.dataframe(df_fc[kolom_tersedia])
+        # Export to Excel
+        def to_excel(df):
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Sheet1')
+                # Get the xlsxwriter workbook and worksheet objects
+                workbook = writer.book
+                worksheet = writer.sheets['Sheet1']
+                
+                # Add number format for currency columns
+                money_fmt = workbook.add_format({'num_format': '#,##0'})
+                
+                # Apply the format to the currency columns
+                worksheet.set_column('F:H', 15, money_fmt)  # Adjust column width and format
+                
+                # Auto-adjust columns' width
+                for idx, col in enumerate(df.columns):
+                    series = df[col]
+                    max_len = max(
+                        series.astype(str).apply(len).max(),
+                        len(str(series.name))
+                    ) + 2
+                    worksheet.set_column(idx, idx, max_len)
+                
+            processed_data = output.getvalue()
+            return processed_data
         
-        # Total Biaya Aktual dan Estimasi
-        total_biaya_aktual = df_fc['NOMINAL'].sum()
-        total_biaya_estimasi = df_fc['ESTIMASI BIAYA'].sum()
+        # Create download button
+        excel_file = to_excel(df_fc[kolom_tampil])
+        st.download_button(
+            label="📥 Download Excel file",
+            data=excel_file,
+            file_name='analisa_fotocopy.xlsx',
+            mime='application/vnd.ms-excel'
+        )
         
-        col1, col2 = st.columns(2)
-        with col1:
-            st.success(f"Total Biaya Aktual: Rp {total_biaya_aktual:,.2f}")
-        with col2:
-            st.info(f"Total Biaya Estimasi: Rp {total_biaya_estimasi:,.2f}")
-            
-        # Hitung dan tampilkan selisih
-        selisih = total_biaya_aktual - total_biaya_estimasi
-        if selisih > 0:
-            st.warning(f"Biaya Aktual lebih tinggi dari Estimasi: Rp {abs(selisih):,.2f}")
-        elif selisih < 0:
-            st.warning(f"Biaya Aktual lebih rendah dari Estimasi: Rp {abs(selisih):,.2f}")
-        else:
-            st.success("Biaya Aktual sama dengan Estimasi")
-            
     else:
         st.error("Kolom 'DESCRIPTION' atau 'NOMINAL' tidak ditemukan. Periksa file Excel Anda.")
